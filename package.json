@@ -1,0 +1,12 @@
+{
+  "name": "get-shipping-status",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^0.16.2",
+    "lodash.get": "^4.4.2",
+    "promisify-node": "^0.4.0",
+    "shipping-ups": "^0.5.7"
+  }
+}
