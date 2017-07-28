@@ -2,8 +2,6 @@ let _get = require('lodash.get');
 let promisify = require("promisify-node");
 let upsAPI = require('shipping-ups');
 
-let trackingNumber = process.argv[2];
-
 let ups = promisify(new upsAPI({
   environment: 'live',
   username: 'nickgchristensen',
