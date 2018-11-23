@@ -1,7 +1,9 @@
+let { promisify } = require('util');
 let axios = require('axios');
 let _get = require('lodash.get');
-let request = require('request');
-let ups = require('./ups');
+let tracker = require('delivery-tracker');
+let usps = tracker.courier('usps');
+let trackUsps = promisify(usps.trace);
 
 let autopilot = axios.create({
   headers: {
@@ -10,7 +12,7 @@ let autopilot = axios.create({
   baseURL: 'https://api2.autopilothq.com/v1'
 });
 
-let smartSegmentId = 'sseg1500260355710-EB3B59E0-6A9B-11E7-AC90-818F9772CFB6';
+let smartSegmentId = 'sseg1542946635347-A893CA30-EED6-11E8-B89E-499C6BB5FB93';
 
 let getCustomField = (contact, name) =>
   _get(
@@ -19,8 +21,8 @@ let getCustomField = (contact, name) =>
   );
 
 let addTrackingFields = contact => {
-  let trackingNumber = getCustomField(contact, 'Tracking #');
-  let delivered = getCustomField(contact, 'Delivered');
+  let trackingNumber = getCustomField(contact, 'Package Tracking #');
+  let delivered = getCustomField(contact, 'Package Delivered');
   return Object.assign(contact, { trackingNumber, delivered });
 };
 
@@ -33,24 +35,35 @@ let setCustomFields = contact => {
   return {
     Email: contact.Email,
     custom: {
-      'boolean--Delivered': contact.delivered,
-      'date--Delivery--Date': contact.date
+      'boolean--Package--Delivered': contact.delivered,
+      'date--Package--Delivery--Date': contact.date
     }
   };
 };
 
-let filterContactsAndFields = autoPilotResponse => {
-  let contacts = _get(autoPilotResponse, 'data.contacts');
-  return contacts
+let filterContactsAndFields = autoPilotResponse =>
+  _get(autoPilotResponse, 'data.contacts')
     .map(addTrackingFields)
     .filter(contact => contact.trackingNumber && !contact.delivered)
     .map(pluckFields);
+
+let isDelivered = checkpoint => checkpoint.status.toLowerCase() === 'delivered';
+
+let getShippingStatus = trackingNumber => {
+  return trackUsps(trackingNumber).then(trackingInfo => {
+    let delivered = isDelivered(trackingInfo);
+    return {
+      trackingNumber,
+      delivered,
+      date: delivered ? trackingInfo.checkpoints.find(isDelivered).time : null
+    };
+  });
 };
 
-let getShippingStatus = contacts => {
-  let statuses = contacts.map(contact => contact.trackingNumber).map(ups);
-  // It's dumb that I wait for all to resolve
-  // I should just post back to autopilot as soon as UPS responds
+let addShippingStatusesToContacts = contacts => {
+  let statuses = contacts
+    .map(contact => contact.trackingNumber)
+    .map(getShippingStatus);
   return Promise.all(statuses)
     .then(statuses => {
       return contacts.map(contact => {
@@ -63,7 +76,7 @@ let getShippingStatus = contacts => {
     .catch(error => console.error(error));
 };
 
-let sendUpdates = contacts => {
+let postUpdatedContacts = contacts => {
   let updates = contacts
     .filter(contact => contact.delivered)
     .map(setCustomFields)
@@ -74,6 +87,6 @@ let sendUpdates = contacts => {
 autopilot
   .get(`/smart_segments/contactlist_${smartSegmentId}/contacts/`)
   .then(filterContactsAndFields)
-  .then(getShippingStatus)
-  .then(sendUpdates)
+  .then(addShippingStatusesToContacts)
+  .then(postUpdatedContacts)
   .catch(error => console.error(error.response.status));
