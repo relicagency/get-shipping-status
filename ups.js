@@ -1,5 +1,5 @@
 let _get = require('lodash.get');
-let promisify = require("promisify-node");
+let { promisify } = require('util');
 let upsAPI = require('shipping-ups');
 
 let ups = promisify(new upsAPI({
