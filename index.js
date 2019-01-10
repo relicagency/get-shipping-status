@@ -12,7 +12,7 @@ let autopilot = axios.create({
   baseURL: 'https://api2.autopilothq.com/v1'
 });
 
-let smartSegmentId = 'sseg1542946635347-A893CA30-EED6-11E8-B89E-499C6BB5FB93';
+let smartSegmentId = 'sseg1543466966223-25F295F0-F392-11E8-ACAB-43D448F6C875';
 
 let getCustomField = (contact, name) =>
   _get(
