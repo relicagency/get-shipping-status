@@ -41,11 +41,18 @@ let setCustomFields = contact => {
   };
 };
 
-let filterContactsAndFields = autoPilotResponse =>
-  _get(autoPilotResponse, 'data.contacts')
+let filterContactsAndFields = autoPilotResponse => {
+  let allContacts = _get(autoPilotResponse, 'data.contacts')
     .map(addTrackingFields)
+  let contactsToUpdate = allContacts
     .filter(contact => contact.trackingNumber && !contact.delivered)
     .map(pluckFields);
+  console.log(`Getting shipping status for ${contactsToUpdate.length} of ${allContacts.length} total contacts:`);
+  console.log('Tracking #            \tEmail');
+  console.log(contactsToUpdate.map(contact => `${contact.trackingNumber}\t${contact.Email}`).join('\n'));
+
+  return contactsToUpdate;
+}
 
 let isDelivered = checkpoint => checkpoint.status.toLowerCase() === 'delivered';
 
@@ -66,6 +73,8 @@ let addShippingStatusesToContacts = contacts => {
     .map(getShippingStatus);
   return Promise.all(statuses)
     .then(statuses => {
+      console.log('\nShipping statuses:\nTracking #            \tDelivered\tDate');
+      console.log(statuses.map(status => `${status.trackingNumber}\t${status.delivered}     \t${status.date}`).join('\n'));
       return contacts.map(contact => {
         let status = statuses.find(
           status => status.trackingNumber === contact.trackingNumber
